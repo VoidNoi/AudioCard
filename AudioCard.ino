@@ -45,6 +45,8 @@ bool isStopped = false;
 bool deletingFolder = false;
 bool pathChanged = true;
 
+int volume = 10;
+
 TaskHandle_t handleAudioTask = NULL;
 
 void bootLogo(){
@@ -205,7 +207,7 @@ void setup() {
   display.setTextColor(PURPLE);
   
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(10);
+  audio.setVolume(volume);
   
   //Manually assigning the audio to a core allows audio and video to be played at the same time
   xTaskCreatePinnedToCore(audioTask, "Audio Task", 10240, NULL, 3, &handleAudioTask, 1);
@@ -426,6 +428,7 @@ void secondsToTime(unsigned long totalSeconds, char *buffer, bool hourLong) {
 void playSong() {
   M5Canvas backgroundSprite(&display);
   M5Canvas playingSprite(&display);
+
   backgroundSprite.createSprite(display.width(), display.height());
   playingSprite.createSprite(display.width(), letterHeight*2);
   
@@ -436,13 +439,16 @@ void playSong() {
   char fixedFileCurrent[50];
 
   while(true) {
-    if (audio.getAudioFileDuration() >= 3600) {
-      secondsToTime(audio.getAudioFileDuration(), fixedFileDuration, true);
-      secondsToTime(audio.getAudioCurrentTime(), fixedFileCurrent, true);
+    uint32_t act = audio.getAudioCurrentTime();
+    uint32_t afd = audio.getAudioFileDuration();
+    if (afd >= 3600) {
+    secondsToTime(afd, fixedFileDuration, true);
+    secondsToTime(act, fixedFileCurrent, true);
     } else {
-      secondsToTime(audio.getAudioFileDuration(), fixedFileDuration, false);
-      secondsToTime(audio.getAudioCurrentTime(), fixedFileCurrent, false);
+    secondsToTime(afd, fixedFileDuration, false);
+    secondsToTime(act, fixedFileCurrent, false);
     }
+    
     backgroundSprite.fillSprite(BLACK);
     playingSprite.fillSprite(BLACK);
     playingSprite.setTextColor(PURPLE);
@@ -457,9 +463,24 @@ void playSong() {
 
     M5Cardputer.update();
     
-    // If any key is pressed go to main menu
     if (kb.isChange()) {
+      // pause/resume song
+      if (kb.isKeyPressed(KEY_ENTER)) {
+        audio.pauseResume(); 
+      }
+      if (kb.isKeyPressed(';') && volume < 21) {
+        // volume up
+        volume++;
+        audio.setVolume(volume);
+      }
+      if (kb.isKeyPressed('.') && volume > 0) {
+        // volume down
+        volume--;
+        audio.setVolume(volume);
+      }
+    // If esc key is pressed go to main menu
       if (kb.isKeyPressed('`')){
+        audio.stopSong();
         delay(100);
         return;
       }
