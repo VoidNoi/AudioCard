@@ -2,7 +2,9 @@
  * Audio.h
  *
  *  Created on: Oct 28,2018
- *  Updated on: Nov 22,2022
+ *
+ *  Version 2.0.8c
+ *  Updated on: Jan 13,2023
  *      Author: Wolle (schreibfaul1)
  */
 
@@ -164,7 +166,6 @@ public:
     ~Audio();
     void setBufsize(int rambuf_sz, int psrambuf_sz);
     bool connecttohost(const char* host, const char* user = "", const char* pwd = "");
-
     bool connecttospeech(const char* speech, const char* lang);
     bool connecttomarytts(const char* speech, const char* lang, const char* voice);
     bool connecttoFS(fs::FS &fs, const char* path, uint32_t resumeFilePos = 0);
@@ -182,8 +183,10 @@ public:
     uint32_t stopSong();
     void forceMono(bool m);
     void setBalance(int8_t bal = 0);
+    void setVolumeSteps(uint8_t steps);
     void setVolume(uint8_t vol);
     uint8_t getVolume();
+    uint8_t maxVolume();
     uint8_t getI2sPort();
 
     uint32_t getAudioDataStartPos();
@@ -233,6 +236,7 @@ private:
     void showCodecParams();
     int  findNextSync(uint8_t* data, size_t len);
     int  sendBytes(uint8_t* data, size_t len);
+    void setDecoderItems();
     void compute_audioCurrentTime(int bd);
     void printDecodeError(int r);
     void showID3Tag(const char* tag, const char* val);
@@ -242,7 +246,6 @@ private:
     int  read_FLAC_Header(uint8_t *data, size_t len);
     int  read_ID3_Header(uint8_t* data, size_t len);
     int  read_M4A_Header(uint8_t* data, size_t len);
-    int  read_OGG_Header(uint8_t *data, size_t len);
     size_t process_m3u8_ID3_Header(uint8_t* packet);
     bool setSampleRate(uint32_t hz);
     bool setBitsPerSample(int bits);
@@ -250,9 +253,7 @@ private:
     bool setBitrate(int br);
     bool playChunk();
     bool playSample(int16_t sample[2]) ;
-    void playI2Sremains();
     int32_t Gain(int16_t s[2]);
-    bool fill_InputBuf();
     void showstreamtitle(const char* ml);
     bool parseContentType(char* ct);
     bool parseHttpResponseHeader();
@@ -273,12 +274,13 @@ private:
     uint16_t readMetadata(uint16_t b, bool first = false);
     size_t   chunkedDataTransfer(uint8_t* bytes);
     bool     readID3V1Tag();
-    void     slowStreamDetection(uint32_t inBuffFilled, uint32_t maxFrameSize);
-    void     lostStreamDetection(uint32_t bytesAvail);
+    boolean  streamDetection(uint32_t bytesAvail);
     void     seek_m4a_stsz();
+    void     seek_m4a_ilst();
     uint32_t m4a_correctResumeFilePos(uint32_t resumeFilePos);
     uint32_t flac_correctResumeFilePos(uint32_t resumeFilePos);
     uint32_t mp3_correctResumeFilePos(uint32_t resumeFilePos);
+    uint8_t  determineOggCodec(uint8_t* data, uint16_t len);
 
 
 //++++ implement several function with respect to the index of string ++++
@@ -430,7 +432,7 @@ private:
 	}
 
 private:
-    const char *codecname[9] = {"unknown", "WAV", "MP3", "AAC", "M4A", "FLAC", "OGG", "OGG FLAC", "OPUS"};
+    const char *codecname[9] = {"unknown", "WAV", "MP3", "AAC", "M4A", "FLAC"};
     enum : int { APLL_AUTO = -1, APLL_ENABLE = 1, APLL_DISABLE = 0 };
     enum : int { EXTERNAL_I2S = 0, INTERNAL_DAC = 1, INTERNAL_PDM = 2 };
     enum : int { FORMAT_NONE = 0, FORMAT_M3U = 1, FORMAT_PLS = 2, FORMAT_ASX = 3, FORMAT_M3U8 = 4};
@@ -440,9 +442,8 @@ private:
                  FLAC_SEEK = 6, FLAC_VORBIS = 7, FLAC_CUESHEET = 8, FLAC_PICTURE = 9, FLAC_OKAY = 100};
     enum : int { M4A_BEGIN = 0, M4A_FTYP = 1, M4A_CHK = 2, M4A_MOOV = 3, M4A_FREE = 4, M4A_TRAK = 5, M4A_MDAT = 6,
                  M4A_ILST = 7, M4A_MP4A = 8, M4A_AMRDY = 99, M4A_OKAY = 100};
-    enum : int { OGG_BEGIN = 0, OGG_MAGIC = 1, OGG_HEADER = 2, OGG_FIRST = 3, OGG_AMRDY = 99, OGG_OKAY = 100};
     enum : int { CODEC_NONE = 0, CODEC_WAV = 1, CODEC_MP3 = 2, CODEC_AAC = 3, CODEC_M4A = 4, CODEC_FLAC = 5,
-                 CODEC_OGG = 6, CODEC_OGG_FLAC = 7, CODEC_OGG_OPUS = 8, CODEC_AACP = 9};
+                 CODEC_AACP = 6, CODEC_OPUS = 7, CODEC_OGG = 8};
     enum : int { ST_NONE = 0, ST_WEBFILE = 1, ST_WEBSTREAM = 2};
     typedef enum { LEFTCHANNEL=0, RIGHTCHANNEL=1 } SampleIndex;
     typedef enum { LOWSHELF = 0, PEAKEQ = 1, HIFGSHELF =2 } FilterType;
@@ -467,6 +468,7 @@ private:
     WiFiClient            client;       // @suppress("Abstract class cannot be instantiated")
     WiFiClientSecure      clientsecure; // @suppress("Abstract class cannot be instantiated")
     WiFiClient*           _client = nullptr;
+    SemaphoreHandle_t     mutex_audio;
     i2s_config_t          m_i2s_config = {}; // stores values for I2S driver
     i2s_pin_config_t      m_pin_config = {};
     std::vector<char*>    m_playlistContent; // m3u8 playlist buffer
@@ -477,6 +479,7 @@ private:
     const size_t    m_frameSizeMP3  = 1600;
     const size_t    m_frameSizeAAC  = 1600;
     const size_t    m_frameSizeFLAC = 4096 * 4;
+    const size_t    m_frameSizeOPUS = 1024;
 
     static const uint8_t m_tsPacketSize  = 188;
     static const uint8_t m_tsHeaderSize  = 4;
@@ -495,7 +498,9 @@ private:
     uint32_t        m_metacount = 0;                // counts down bytes between metadata
     int             m_controlCounter = 0;           // Status within readID3data() and readWaveHeader()
     int8_t          m_balance = 0;                  // -16 (mute left) ... +16 (mute right)
-    uint8_t         m_vol=64;                       // volume
+    uint16_t        m_vol=64;                       // volume
+    uint8_t         m_vol_steps = 0;                // 0 == legacy 21 steps, > 0: number of volume steps
+    int32_t         m_vol_step_div = 64;            // max of volumetable[]
     uint8_t         m_bitsPerSample = 16;           // bitsPerSample
     uint8_t         m_channels = 2;
     uint8_t         m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
@@ -547,6 +552,7 @@ private:
     bool            m_f_Log = false;                // set in platformio.ini  -DAUDIO_LOG and -DCORE_DEBUG_LEVEL=3 or 4
     bool            m_f_continue = false;           // next m3u8 chunk is available
     bool            m_f_ts = true;                  // transport stream
+    bool            m_f_m4aID3dataAreRead = false;  // has the m4a-ID3data already been read?
     uint8_t         m_f_channelEnabled = 3;         // internal DAC, both channels
     uint32_t        m_audioFileDuration = 0;
     float           m_audioCurrentTime = 0;
