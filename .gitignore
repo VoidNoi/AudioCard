@@ -1,2 +1,4 @@
-.dir-locals.el
-build
+.pio
+.clang_complete
+.ccls
+.ccls-cache

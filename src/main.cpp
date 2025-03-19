@@ -4,7 +4,7 @@
 #include "icons.h"
 #include <SPI.h>
 #include <M5Cardputer.h>
-#include "src/Audio/src/Audio.h"
+#include "Audio.h"
 
 Audio audio;
 
@@ -184,6 +184,10 @@ void bootLogo(){
     }
   }
 }
+
+void audioTask(void *pvParameters);
+void handleFolders();
+void handleMenus(int options, void (*executeFunction)(), int& cursor, String* strings, bool addIcons);
 
 void setup() {
   auto cfg = M5.config();
@@ -442,11 +446,20 @@ void playSong() {
     uint32_t act = audio.getAudioCurrentTime();
     uint32_t afd = audio.getAudioFileDuration();
     if (afd >= 3600) {
-    secondsToTime(afd, fixedFileDuration, true);
-    secondsToTime(act, fixedFileCurrent, true);
+      if (act > afd) {
+        secondsToTime(act, fixedFileCurrent, true);
+      } else {
+        secondsToTime(afd, fixedFileDuration, true);
+      }
+      secondsToTime(act, fixedFileCurrent, true);
     } else {
-    secondsToTime(afd, fixedFileDuration, false);
-    secondsToTime(act, fixedFileCurrent, false);
+      if (act > afd) {
+        secondsToTime(act, fixedFileCurrent, false);
+      }
+      else {
+        secondsToTime(afd, fixedFileDuration, false);
+      }
+      secondsToTime(act, fixedFileCurrent, false);
     }
     
     backgroundSprite.fillSprite(BLACK);
