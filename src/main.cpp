@@ -429,32 +429,29 @@ void secondsToTime(unsigned long totalSeconds, char *buffer, bool hourLong) {
   }
 }
 
-void playSong() {
-  M5Canvas backgroundSprite(&display);
+void musicPlayingScreen() {
+  //M5Canvas backgroundSprite(&display);
   M5Canvas playingSprite(&display);
 
-  backgroundSprite.createSprite(display.width(), display.height());
-  playingSprite.createSprite(display.width(), letterHeight*2);
+  //backgroundSprite.createSprite(display.width(), display.height());
+  playingSprite.createSprite(display.width(), display.height());
   
-  String fileName = path + "/" + sdFiles[mainCursor];
-  audio.connecttoFS(SD, fileName.c_str());     // SD
   int durationHour, durationMin, durationSec;
   char fixedFileDuration[50];
   char fixedFileCurrent[50];
-
   while(true) {
     uint32_t act = audio.getAudioCurrentTime();
     uint32_t afd = audio.getAudioFileDuration();
     if (afd >= 3600) {
       if (act > afd) {
-        secondsToTime(act, fixedFileCurrent, true);
+        secondsToTime(act, fixedFileDuration, true);
       } else {
         secondsToTime(afd, fixedFileDuration, true);
       }
       secondsToTime(act, fixedFileCurrent, true);
     } else {
       if (act > afd) {
-        secondsToTime(act, fixedFileCurrent, false);
+        secondsToTime(act, fixedFileDuration, false);
       }
       else {
         secondsToTime(afd, fixedFileDuration, false);
@@ -462,18 +459,29 @@ void playSong() {
       secondsToTime(act, fixedFileCurrent, false);
     }
     
-    backgroundSprite.fillSprite(BLACK);
+    //backgroundSprite.fillSprite(BLACK);
     playingSprite.fillSprite(BLACK);
     playingSprite.setTextColor(PURPLE);
     playingSprite.setTextSize(1);
-    playingSprite.setCursor(0, 0);
     
+    playingSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()-letterHeight/2);
     playingSprite.println(fixedFileDuration);
-    playingSprite.setCursor(0, letterHeight);
-    playingSprite.println(fixedFileCurrent);
-    playingSprite.pushSprite(&backgroundSprite, 10, 0);
-    backgroundSprite.pushSprite(0, 0);
 
+    
+    playingSprite.setCursor(0, display.height()-letterHeight/2);
+    playingSprite.println(fixedFileCurrent);
+
+    playingSprite.drawRect(0, display.height()/2, display.width()-2, 10, PURPLE);
+
+    int barFillGauge = act * display.width()/afd;
+
+    if (act > 0) {
+      playingSprite.fillRect(1, display.height()/2 + 1, barFillGauge, 8, PURPLE);
+    }
+
+    playingSprite.pushSprite(0, 0);
+    //backgroundSprite.pushSprite(0, 0);
+    
     M5Cardputer.update();
     
     if (kb.isChange()) {
@@ -481,17 +489,17 @@ void playSong() {
       if (kb.isKeyPressed(KEY_ENTER)) {
         audio.pauseResume(); 
       }
+      // volume up
       if (kb.isKeyPressed(';') && volume < 21) {
-        // volume up
         volume++;
         audio.setVolume(volume);
       }
+      // volume down
       if (kb.isKeyPressed('.') && volume > 0) {
-        // volume down
         volume--;
         audio.setVolume(volume);
       }
-    // If esc key is pressed go to main menu
+      // If esc key is pressed go to main menu
       if (kb.isKeyPressed('`')){
         audio.stopSong();
         delay(100);
@@ -503,7 +511,9 @@ void playSong() {
 
 void fileOptions() {
   if (fileCursor == 0) {
-    playSong();
+    String fileName = path + "/" + sdFiles[mainCursor];
+    audio.connecttoFS(SD, fileName.c_str());     // SD
+    musicPlayingScreen();
     return;
   }
   else if (fileCursor == 1) {
