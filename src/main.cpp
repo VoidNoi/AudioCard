@@ -429,11 +429,44 @@ void secondsToTime(unsigned long totalSeconds, char *buffer, bool hourLong) {
   }
 }
 
-void musicPlayingScreen() {
-  //M5Canvas backgroundSprite(&display);
+bool show = false;
+unsigned long currentTime;
+unsigned long startTime = millis();
+
+void volumeBar(M5Canvas background) {
+  //If volume changes, slide in a volume bar modal showing a vertical bar that gets filled depending on the volume value. After 2 seconds of no change, hide the modal by sliding out 
+  M5Canvas volBarSprite(&display);
+  
+  volBarSprite.createSprite(24, 104);
+
+  volBarSprite.fillSprite(BLACK);
+  volBarSprite.setTextColor(PURPLE);
+  volBarSprite.setTextSize(1);
+
+  volBarSprite.setCursor(4, 2);
+  volBarSprite.println("Vol");
+  
+  volBarSprite.drawRect(0,0,volBarSprite.width(), volBarSprite.height(), PURPLE);
+  
+  volBarSprite.drawRect(volBarSprite.width()/2-5, letterHeight/2+4, 10, 84, PURPLE);
+  
+  if (volume > 0) {
+    volBarSprite.fillRect(volBarSprite.width()/2-4, letterHeight/2+4 + 84, 8, -volume *4, PURPLE);
+  }
+  
+  volBarSprite.pushSprite(&background, display.width() - 25, display.height() / 2 - 52);
+
+  if (currentTime - startTime > 1000) {
+    show = false;
+    startTime = currentTime;
+  }
+}
+
+void AudioPlayingScreen() {
+  M5Canvas backgroundSprite(&display);
   M5Canvas playingSprite(&display);
 
-  //backgroundSprite.createSprite(display.width(), display.height());
+  backgroundSprite.createSprite(display.width(), display.height());
   playingSprite.createSprite(display.width(), display.height());
   
   int durationHour, durationMin, durationSec;
@@ -459,16 +492,19 @@ void musicPlayingScreen() {
       secondsToTime(act, fixedFileCurrent, false);
     }
     
-    //backgroundSprite.fillSprite(BLACK);
+    backgroundSprite.fillSprite(BLACK);
     playingSprite.fillSprite(BLACK);
     playingSprite.setTextColor(PURPLE);
     playingSprite.setTextSize(1);
-    
-    playingSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()-letterHeight/2);
-    playingSprite.println(fixedFileDuration);
 
+    String filePlayingName = sdFiles[mainCursor];
+    playingSprite.setCursor(0, display.height()/2-letterHeight);
+    playingSprite.println(filePlayingName);
     
-    playingSprite.setCursor(0, display.height()-letterHeight/2);
+    playingSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()/2+letterHeight/2+4);
+    playingSprite.println(fixedFileDuration);
+    
+    playingSprite.setCursor(0, display.height()/2+letterHeight/2+4);
     playingSprite.println(fixedFileCurrent);
 
     playingSprite.drawRect(0, display.height()/2, display.width()-2, 10, PURPLE);
@@ -479,11 +515,10 @@ void musicPlayingScreen() {
       playingSprite.fillRect(1, display.height()/2 + 1, barFillGauge, 8, PURPLE);
     }
 
-    playingSprite.pushSprite(0, 0);
-    //backgroundSprite.pushSprite(0, 0);
-    
-    M5Cardputer.update();
-    
+    playingSprite.pushSprite(&backgroundSprite, 0, 0);
+
+    currentTime = millis();
+
     if (kb.isChange()) {
       // pause/resume song
       if (kb.isKeyPressed(KEY_ENTER)) {
@@ -491,11 +526,15 @@ void musicPlayingScreen() {
       }
       // volume up
       if (kb.isKeyPressed(';') && volume < 21) {
+        show = true;
+        startTime = currentTime;
         volume++;
         audio.setVolume(volume);
       }
       // volume down
       if (kb.isKeyPressed('.') && volume > 0) {
+        show = true;
+        startTime = currentTime;
         volume--;
         audio.setVolume(volume);
       }
@@ -506,6 +545,14 @@ void musicPlayingScreen() {
         return;
       }
     }
+    
+    if (show) {
+      volumeBar(backgroundSprite);
+    }
+    
+    backgroundSprite.pushSprite(0, 0);
+    
+    M5Cardputer.update();
   }
 }
 
@@ -513,7 +560,7 @@ void fileOptions() {
   if (fileCursor == 0) {
     String fileName = path + "/" + sdFiles[mainCursor];
     audio.connecttoFS(SD, fileName.c_str());     // SD
-    musicPlayingScreen();
+    AudioPlayingScreen();
     return;
   }
   else if (fileCursor == 1) {
