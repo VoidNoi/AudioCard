@@ -212,6 +212,7 @@ void setup() {
   
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
   audio.setVolume(volume);
+  audio.setTone(1, 2, -10);
   
   //Manually assigning the audio to a core allows audio and video to be played at the same time
   xTaskCreatePinnedToCore(audioTask, "Audio Task", 10240, NULL, 3, &handleAudioTask, 1);
@@ -432,6 +433,8 @@ void secondsToTime(unsigned long totalSeconds, char *buffer, bool hourLong) {
 bool show = false;
 unsigned long currentTime;
 unsigned long startTime = millis();
+unsigned long currentTimeText;
+unsigned long startTimeText = millis();
 
 void volumeBar(M5Canvas background) {
   //If volume changes, slide in a volume bar modal showing a vertical bar that gets filled depending on the volume value. After 2 seconds of no change, hide the modal by sliding out 
@@ -456,9 +459,24 @@ void volumeBar(M5Canvas background) {
   
   volBarSprite.pushSprite(&background, display.width() - 25, display.height() / 2 - 52);
 
-  if (currentTime - startTime > 1000) {
+  if (currentTime - startTime >= 1000) {
     show = false;
     startTime = currentTime;
+  }
+}
+
+void scrollText(M5Canvas sprite, String name, int& x, int y) {
+  currentTimeText = millis();
+  sprite.drawString(name, x, y);
+  
+  int namePixelLength = name.length()*letterWidth;
+  int diff = display.width()-namePixelLength;
+
+  if (diff < 1 && x > diff && currentTimeText - startTimeText >= 2000) {
+    x = x - 2;
+  } else if (currentTimeText - startTimeText >= 5000) {
+    x = 1;
+    startTimeText = currentTimeText;
   }
 }
 
@@ -472,6 +490,12 @@ void AudioPlayingScreen() {
   int durationHour, durationMin, durationSec;
   char fixedFileDuration[50];
   char fixedFileCurrent[50];
+
+  String filePlayingName = sdFiles[mainCursor];
+  int fileNameXPos = 1;
+
+  startTimeText = millis();
+  
   while(true) {
     uint32_t act = audio.getAudioCurrentTime();
     uint32_t afd = audio.getAudioFileDuration();
@@ -495,12 +519,13 @@ void AudioPlayingScreen() {
     backgroundSprite.fillSprite(BLACK);
     playingSprite.fillSprite(BLACK);
     playingSprite.setTextColor(PURPLE);
+
+    playingSprite.setTextSize(2);
+
+    scrollText(playingSprite, filePlayingName, fileNameXPos, display.height()/2-letterHeight);
+    
     playingSprite.setTextSize(1);
 
-    String filePlayingName = sdFiles[mainCursor];
-    playingSprite.setCursor(0, display.height()/2-letterHeight);
-    playingSprite.println(filePlayingName);
-    
     playingSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()/2+letterHeight/2+4);
     playingSprite.println(fixedFileDuration);
     
