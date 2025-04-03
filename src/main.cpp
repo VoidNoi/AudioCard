@@ -24,6 +24,7 @@ String pathArray[maxFiles] = {root};
 int pathLen = 0;
 
 int fileAmount;
+int dirAmount;
 
 int mainCursor = 0;
 int fileCursor = 0;
@@ -301,6 +302,7 @@ void getDirectory(String directory, int &amount, String* fileArray, int* types) 
       filesCount++;
     }
   }
+  dirAmount = tempDirsAmount;
 }
 
 void getCurrentPath() {
@@ -491,12 +493,13 @@ void AudioPlayingScreen() {
   char fixedFileDuration[50];
   char fixedFileCurrent[50];
 
-  String filePlayingName = sdFiles[mainCursor];
+  int currentAudioNum = 0;
   int fileNameXPos = 1;
 
   startTimeText = millis();
   
   while(true) {
+    String filePlayingName = sdFiles[mainCursor+currentAudioNum];
     uint32_t act = audio.getAudioCurrentTime();
     uint32_t afd = audio.getAudioFileDuration();
     if (afd >= 3600) {
@@ -562,6 +565,20 @@ void AudioPlayingScreen() {
         startTime = currentTime;
         volume--;
         audio.setVolume(volume);
+      }
+      // previous audio
+      if (kb.isKeyPressed(',') && mainCursor + currentAudioNum > dirAmount) {
+        currentAudioNum--;
+        String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
+        audio.stopSong();
+        audio.connecttoFS(SD, fullFileName.c_str());
+      }
+      // next audio
+      if (kb.isKeyPressed('/') && mainCursor + currentAudioNum < fileAmount-1) {
+        currentAudioNum++;
+        String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
+        audio.stopSong();
+        audio.connecttoFS(SD, fullFileName.c_str());
       }
       // If esc key is pressed go to main menu
       if (kb.isKeyPressed('`')){
