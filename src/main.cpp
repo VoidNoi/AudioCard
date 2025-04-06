@@ -29,8 +29,8 @@ int dirAmount;
 int mainCursor = 0;
 int fileCursor = 0;
 
-String sdFiles[maxFiles] = {"NEW FOLDER"};
-int fileType[maxFiles] = {2};
+String sdFiles[maxFiles];
+int fileType[maxFiles];
 
 const int fileOptionsAmount = 2;
 String fileMenuOptions[fileOptionsAmount] = {"Play song", "Delete song"};
@@ -48,7 +48,12 @@ bool pathChanged = true;
 
 int volume = 10;
 
+int textMenuPosY = 60;
+
 TaskHandle_t handleAudioTask = NULL;
+
+M5Canvas menuBackgroundSprite(&display);
+M5Canvas menuSprite(&display);
 
 void bootLogo(){
   
@@ -222,44 +227,63 @@ void setup() {
 }
 
 void audioTask(void *pvParameters) {
-    while (true) {
-        if (isPlaying) {
-            while (isPlaying) {
-                if(!isStopped)
-                audio.loop();
-                vTaskDelay(1);
-            }
-        } else {
-            isPlaying=true;
-        }
+  while (true) {
+    if (isPlaying) {
+      while (isPlaying) {
+        if(!isStopped)
+          audio.loop();
+        vTaskDelay(1);
+      }
+    } else {
+      isPlaying=true;
     }
+  }
 }
 
 void printMenu(int cursor, String* strings, int stringsAmount, int screenDirection, bool addIcons) {
   int textPosX = addIcons ? 40 : 20;
+  
+  menuSprite.drawRect(0,display.height()/2-letterHeight/2-2,menuSprite.width()-1, letterHeight+6, PURPLE);
+
   for (int i = 0; i <= stringsAmount; i++) {
     int prevString = i-screenDirection;
     
     if (screenDirection != 0) {
       if (addIcons){
-        display.setSwapBytes(true);
-        display.fillRect(20, i*20, 16, 16, BLACK);
-        display.pushImage(20, i*20, 16, 16, (uint16_t *)icons[fileType[i+screenPosY]]);
+        menuSprite.setSwapBytes(true);
+        menuSprite.fillRect(20, textMenuPosY+i*20, 16, 16, BLACK);
+        menuSprite.pushImage(20, textMenuPosY+i*20, 16, 16, (uint16_t *)icons[fileType[i]]);
       }
-      display.setTextColor(BLACK);
-      display.drawString(strings[prevString+screenPosY], textPosX, i*20);
-          
-      display.setTextColor(PURPLE);
-      display.drawString(strings[i+screenPosY], textPosX, i*20);
+
+      if (i == 0 && screenDirection == -1) {
+        if (addIcons) menuSprite.fillRect(20, textMenuPosY-20, 16, 16, BLACK);
+        menuSprite.setTextColor(BLACK);
+        menuSprite.drawString(strings[i], textPosX, textMenuPosY-20);
+      }
+
+      if (i == stringsAmount && screenDirection == 1) {
+        if (addIcons) menuSprite.fillRect(20, textMenuPosY + (stringsAmount+1) * 20, 16, 16, BLACK);
+        menuSprite.setTextColor(BLACK);
+        menuSprite.drawString(strings[i], textPosX, textMenuPosY + (stringsAmount+1) * 20);
+      }
+      
+      menuSprite.setTextColor(BLACK);
+      menuSprite.drawString(strings[prevString], textPosX, textMenuPosY+i*20);
+      
+      menuSprite.setTextColor(PURPLE);
+      menuSprite.drawString(strings[i], textPosX, textMenuPosY+i*20);
     } else {
       if (addIcons){
-        display.setSwapBytes(true);
-        display.pushImage(20, i*20, 16, 16, (uint16_t *)icons[fileType[i]]);
+        menuSprite.setSwapBytes(true);
+        menuSprite.pushImage(20, textMenuPosY+i*20, 16, 16, (uint16_t *)icons[fileType[i]]);
       }
-      display.setTextColor(PURPLE);
-      display.drawString(strings[i], textPosX, i*20);
+      menuSprite.setTextColor(PURPLE);
+      menuSprite.drawString(strings[i], textPosX, textMenuPosY+i*20);
     }
   }
+
+  menuSprite.pushSprite(&menuBackgroundSprite, 0, 0);
+  menuBackgroundSprite.pushSprite(0,0);
 }
 
 void getDirectory(String directory, int &amount, String* fileArray, int* types) {
@@ -483,11 +507,11 @@ void scrollText(M5Canvas sprite, String name, int& x, int y) {
 }
 
 void AudioPlayingScreen() {
-  M5Canvas backgroundSprite(&display);
-  M5Canvas playingSprite(&display);
+  //M5Canvas backgroundSprite(&display);
+  //M5Canvas menuSprite(&display);
 
-  backgroundSprite.createSprite(display.width(), display.height());
-  playingSprite.createSprite(display.width(), display.height());
+  menuBackgroundSprite.createSprite(display.width(), display.height());
+  menuSprite.createSprite(display.width(), display.height());
   
   int durationHour, durationMin, durationSec;
   char fixedFileDuration[50];
@@ -519,31 +543,32 @@ void AudioPlayingScreen() {
       secondsToTime(act, fixedFileCurrent, false);
     }
     
-    backgroundSprite.fillSprite(BLACK);
-    playingSprite.fillSprite(BLACK);
-    playingSprite.setTextColor(PURPLE);
-
-    playingSprite.setTextSize(2);
-
-    scrollText(playingSprite, filePlayingName, fileNameXPos, display.height()/2-letterHeight);
+    menuBackgroundSprite.fillSprite(BLACK);
     
-    playingSprite.setTextSize(1);
+    menuSprite.fillSprite(BLACK);
+    menuSprite.setTextColor(PURPLE);
 
-    playingSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()/2+letterHeight/2+4);
-    playingSprite.println(fixedFileDuration);
+    menuSprite.setTextSize(2);
+
+    scrollText(menuSprite, filePlayingName, fileNameXPos, display.height()/2-letterHeight);
     
-    playingSprite.setCursor(0, display.height()/2+letterHeight/2+4);
-    playingSprite.println(fixedFileCurrent);
+    menuSprite.setTextSize(1);
 
-    playingSprite.drawRect(0, display.height()/2, display.width()-2, 10, PURPLE);
+    menuSprite.setCursor(display.width()-strlen(fixedFileDuration)*letterWidth/2-2, display.height()/2+letterHeight/2+4);
+    menuSprite.println(fixedFileDuration);
+    
+    menuSprite.setCursor(0, display.height()/2+letterHeight/2+4);
+    menuSprite.println(fixedFileCurrent);
+
+    menuSprite.drawRect(0, display.height()/2, display.width()-2, 10, PURPLE);
 
     int barFillGauge = act * display.width()/afd;
 
     if (act > 0) {
-      playingSprite.fillRect(1, display.height()/2 + 1, barFillGauge, 8, PURPLE);
+      menuSprite.fillRect(1, display.height()/2 + 1, barFillGauge, 8, PURPLE);
     }
 
-    playingSprite.pushSprite(&backgroundSprite, 0, 0);
+    menuSprite.pushSprite(&menuBackgroundSprite, 0, 0);
 
     currentTime = millis();
 
@@ -568,6 +593,8 @@ void AudioPlayingScreen() {
       }
       // previous audio
       if (kb.isKeyPressed(',') && mainCursor + currentAudioNum > dirAmount) {
+        fileNameXPos = 1;
+        startTimeText = millis();
         currentAudioNum--;
         String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
         audio.stopSong();
@@ -575,6 +602,8 @@ void AudioPlayingScreen() {
       }
       // next audio
       if (kb.isKeyPressed('/') && mainCursor + currentAudioNum < fileAmount-1) {
+        fileNameXPos = 1;
+        startTimeText = millis();
         currentAudioNum++;
         String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
         audio.stopSong();
@@ -589,10 +618,10 @@ void AudioPlayingScreen() {
     }
     
     if (show) {
-      volumeBar(backgroundSprite);
+      volumeBar(menuBackgroundSprite);
     }
     
-    backgroundSprite.pushSprite(0, 0);
+    menuBackgroundSprite.pushSprite(0, 0);
     
     M5Cardputer.update();
   }
@@ -689,22 +718,22 @@ void handleFolders() {
   display.setTextSize(2);
   while (pathChanged) {
     if (pathArray[pathLen] != root) {
-      fileAmount = 2;
-      if (mainCursor > 0 && fileType[fileCursor] < 8 && !deletingFolder) {
+      fileAmount = 1;
+      if (mainCursor >= 0 && fileType[fileCursor] < 8 && !deletingFolder) {
         pathArray[pathLen] = "/" + sdFiles[mainCursor];
       }
       getCurrentPath();
       sdFiles[0] = "..";
-      sdFiles[1] = "NEW FOLDER";
+      //sdFiles[1] = "NEW FOLDER";
       fileType[0] = 7;
-      fileType[1] = 2;
+      //fileType[1] = 2;
     } else {
-      fileAmount = 1;
+      fileAmount = 0;
       path = root;
       pathLen = 0;
       
-      sdFiles[0] = "NEW FOLDER";
-      fileType[0] = 2;
+      //sdFiles[0] = "NEW FOLDER";
+      //fileType[0] = 2;
     }
     
     getDirectory(path, fileAmount, sdFiles, fileType);
@@ -720,8 +749,14 @@ void handleFolders() {
 }
 
 void handleMenus(int options, void (*executeFunction)(), int& cursor, String* strings, bool addIcons) {
-  display.fillScreen(BLACK);
+
+  menuBackgroundSprite.createSprite(display.width(), display.height());
+  menuSprite.createSprite(display.width(), display.height());
+
+  menuSprite.setTextSize(2);
+  menuBackgroundSprite.fillScreen(BLACK);
   cursor = 0;
+  textMenuPosY = 60;
   int screenDirection; // -1 = down | 0 = none | 1 = up;
   while (true) {
     M5Cardputer.update();
@@ -729,35 +764,37 @@ void handleMenus(int options, void (*executeFunction)(), int& cursor, String* st
       if (screenPosY == 0) {
         screenDirection = 0;
       }
-      display.setTextColor(BLACK);
+      menuSprite.setTextColor(BLACK);
       int drawCursor = cursor*20;
         
-      display.drawString(">", 5, drawCursor);
+      menuSprite.drawString(">", 5, drawCursor);
 
       if (kb.isKeyPressed(';') && cursor > 0){
         cursor--;
 
-        if (screenPosY > 0 && cursor > 0) {
+        //if (screenPosY > 0 && cursor > 0) {
           screenPosY--;
           screenDirection = -1;
-        }
+          textMenuPosY += 20;
+          //}
       } else if (kb.isKeyPressed('.') && cursor < options) {
         cursor++;
 
-        if (cursor * 20 >= display.height() - 20) {
+        //if (60+cursor * 20 >= display.height() - 20) {
           screenPosY++;
           screenDirection = 1;
-        }
+          textMenuPosY -= 20;
+          //}
       }
       
-      drawCursor = cursor*20;
-      if (cursor * 20 > display.height()-20) {
-        drawCursor = (display.height() - 20) - 15;
-      }
+      //drawCursor = cursor*20;
+      //if (60 + cursor * 20 > display.height()-20) {
+      //drawCursor = (display.height() - 20) - 15;
+      //}
 
-      display.setTextColor(PURPLE);
+      menuSprite.setTextColor(PURPLE);
 
-      display.drawString(">", 5, drawCursor);
+      menuSprite.drawString(">", 5, 3*20);
 
       printMenu(cursor, strings, options, screenDirection, addIcons);
 
