@@ -21,6 +21,7 @@ File myFile;
 String root = "/AudioCard";
 String path = root;
 String pathArray[maxFiles] = {root};
+String currentDir = "root";
 int pathLen = 0;
 
 int fileAmount;
@@ -32,9 +33,6 @@ int fileCursor = 0;
 String sdFiles[maxFiles];
 int fileType[maxFiles];
 
-const int fileOptionsAmount = 2;
-String fileMenuOptions[fileOptionsAmount] = {"Play song", "Delete song"};
-
 int letterHeight = 16;
 int letterWidth = 12;
 
@@ -43,12 +41,13 @@ int cursorPosX, cursorPosY, screenPosX, screenPosY = 0;
 bool isPlaying = true;
 bool isStopped = false;
 
-bool deletingFolder = false;
 bool pathChanged = true;
 
 int volume = 10;
 
 int textMenuPosY = 60;
+
+int currentAudioNum = 0;
 
 TaskHandle_t handleAudioTask = NULL;
 
@@ -240,9 +239,35 @@ void audioTask(void *pvParameters) {
   }
 }
 
+void displayTopBar() {
+  M5Canvas topBar(&display);
+  
+  topBar.createSprite(display.width(), letterHeight/2+6);
+  
+  currentDir = pathArray[pathLen];
+
+  topBar.drawRect(0,0, display.width()-1, letterHeight/2+6, PURPLE);
+
+  String prevPath = pathLen >= 1 ? pathArray[pathLen-1] : pathArray[0];
+  topBar.setTextSize(1);
+  topBar.setTextColor(BLACK);
+  topBar.drawString(prevPath, 2, 2);
+  topBar.setTextColor(PURPLE);
+  topBar.drawString(pathArray[pathLen], 2, 4);
+  
+  float battery = M5.Power.getBatteryLevel();
+  
+  topBar.drawRect(display.width()-34, 3, 26, 8);
+  int batteryPercent = battery*22/100;
+  topBar.fillRect(display.width()-32, 5, batteryPercent, 4);
+  topBar.fillRect(display.width()-8, 5, 2, 4);  
+
+  topBar.pushSprite(&menuBackgroundSprite, 0, 0);
+}
+
 void printMenu(int cursor, String* strings, int stringsAmount, int screenDirection, bool addIcons) {
   int textPosX = addIcons ? 40 : 20;
-  
+
   menuSprite.drawRect(0,display.height()/2-letterHeight/2-2,menuSprite.width()-1, letterHeight+6, PURPLE);
 
   for (int i = 0; i <= stringsAmount; i++) {
@@ -283,6 +308,7 @@ void printMenu(int cursor, String* strings, int stringsAmount, int screenDirecti
   }
 
   menuSprite.pushSprite(&menuBackgroundSprite, 0, 0);
+  displayTopBar();
   menuBackgroundSprite.pushSprite(0,0);
 }
 
@@ -334,114 +360,6 @@ void getCurrentPath() {
   for (int i = 0; i <= pathLen; i++) {
     path += pathArray[i];
   }
-}
-
-void deleteFolderMenu() {
-  int deleteCursor = 1;
-  int deleteCursorPosX = display.width()/2+2*letterWidth/2+letterWidth;
-  //Displays the delete folder menu
-  display.fillScreen(BLACK); 
-  display.setCursor(display.width()/2-15*letterWidth/2, display.height()/2-letterHeight*3);
-  display.println("Deleting folder");
-  display.setCursor(display.width()/2-12*letterWidth/2, display.height()/2-letterHeight/2*3);
-  display.println("Are you sure?");
-  display.setCursor(display.width()/2-10*letterWidth/2, display.height()/2);
-  display.println("Yes     No");
-  // Handles menu controls
-  while (true) {
-    M5Cardputer.update();
-    if (kb.isChange()) {
-      display.setTextColor(BLACK);
-      display.drawString(">", deleteCursorPosX, display.height()/2);
-      // "," is pressed, select yes
-      if (kb.isKeyPressed(',')) {
-        deleteCursor = 0;
-        
-        deleteCursorPosX = display.width()/2-10*letterWidth/2-letterWidth;
-      }
-      // "/" is pressed, select no
-      if (kb.isKeyPressed('/')) {
-        deleteCursor = 1;
-
-        deleteCursorPosX = display.width()/2+2*letterWidth/2+letterWidth;
-      }
-      
-      display.setTextColor(PURPLE);
-      display.drawString(">", deleteCursorPosX, display.height()/2);
-
-      // Cursor is on yes ("0"), attempt to delete folder
-      if (kb.isKeyPressed(KEY_ENTER)) {
-        if (deleteCursor == 0) {
-          String folderPath = path + "/" + sdFiles[mainCursor];
-          File dir = SD.open(folderPath);
-          // The folders have files inside, try to delete them
-          if (!SD.rmdir(folderPath)){
-            while (true) {
-              File folderFile =  dir.openNextFile();
-              if (!folderFile) { // No more files
-                if (SD.rmdir(folderPath)) { // All files have been removed, delete folder
-                  display.fillScreen(BLACK);
-                  display.setCursor(1,1);
-                  display.println("Folder successfully deleted");
-                } else { // The folder couldn't be removed for some unknown reason
-                  display.fillScreen(BLACK);
-                  display.setCursor(1,1);
-                  display.println("Folder couldn't be deleted");
-                }
-
-                mainCursor = 0;
-                break;
-              }
-              
-              String folderFileName = folderFile.name();
-              // If the file is a directory stop the function and let the user remove it manually
-              // This is done because I haven't implemented recursive file/folder deletion
-              if (folderFile.isDirectory()) {
-                display.fillScreen(BLACK);
-                display.setCursor(1,1);
-                display.println("Remove folders first");
-                mainCursor = 0;
-                break;
-              } else { // The file couldn't be removed for some unknown reason
-                if (!SD.remove(folderPath + "/" + folderFileName)) {
-                  display.fillScreen(BLACK);
-                  display.setCursor(1,1);
-                  display.println("Couldn't remove a file");
-                }
-              }
-            }
-          } else { // If the folder doesn't have any files inside, delete it
-            display.fillScreen(BLACK);
-            display.setCursor(1,1);
-            display.println("Folder successfully deleted");
-          }
-          dir.close();
-          delay(1500);
-        }
-        // Return to current folder
-        handleFolders();
-        break;
-      }
-    }
-  }
-}
-
-void deleteFile() {
-  String fileName = path + "/" + sdFiles[mainCursor];
-  
-  display.fillScreen(BLACK);
-  display.setCursor(1,1);
-  display.println("Deleting file...");
-  if (SD.remove(fileName)) {
-    display.println("File deleted");
-    sdFiles[fileAmount] = '\0';
-    fileAmount--;
-    delay(1000);
-  } else {
-    display.println("File couldn't be deleted");
-    delay(1000);
-  }
-  return;
 }
 
 void secondsToTime(unsigned long totalSeconds, char *buffer, bool hourLong) {
@@ -517,7 +435,7 @@ void audioPlayingScreen() {
   char fixedFileDuration[50];
   char fixedFileCurrent[50];
 
-  int currentAudioNum = 0;
+  currentAudioNum = 0;
   int fileNameXPos = 1;
 
   startTimeText = millis();
@@ -598,7 +516,7 @@ void audioPlayingScreen() {
         currentAudioNum--;
         String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
         audio.stopSong();
-        audio.connecttoFS(SD, fullFileName.c_str());
+        audio.connecttoSD(fullFileName.c_str());
       }
       // next audio
       if (kb.isKeyPressed('/') && mainCursor + currentAudioNum < fileAmount-1) {
@@ -607,12 +525,18 @@ void audioPlayingScreen() {
         currentAudioNum++;
         String fullFileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
         audio.stopSong();
-        audio.connecttoFS(SD, fullFileName.c_str());
+        audio.connecttoSD(fullFileName.c_str());
       }
-      // If esc key is pressed go to main menu
+      // If esc key is pressed stop song and go to menu
       if (kb.isKeyPressed('`')){
         audio.stopSong();
         delay(100);
+        return;
+      }
+
+      Keyboard_Class::KeysState status = kb.keysState();
+      // If del key is press go to menu
+      if (status.del) {
         return;
       }
     }
@@ -621,22 +545,14 @@ void audioPlayingScreen() {
       volumeBar(menuBackgroundSprite);
     }
     
+    displayTopBar();
     menuBackgroundSprite.pushSprite(0, 0);
     
     M5Cardputer.update();
-  }
-}
 
-void fileOptions() {
-  if (fileCursor == 0) {
-    String fileName = path + "/" + sdFiles[mainCursor];
-    audio.connecttoFS(SD, fileName.c_str());     // SD
-    audioPlayingScreen();
-    return;
-  }
-  else if (fileCursor == 1) {
-    deleteFile();
-    return;
+    if (currentAudioNum > fileAmount - dirAmount) {
+      return;
+    }
   }
 }
 
@@ -684,31 +600,18 @@ void newFolder() {
 }
 
 void mainOptions() {
+  String fileName = path + "/" + sdFiles[mainCursor];
   switch (fileType[mainCursor]) {
-  case 2: // New Folder
-    delay(200);
-    newFolder();
-    break;
   case 5: // File
-    fileType[0] = 8;
-    fileType[1] = 9;
-    fileType[2] = 10;
-    handleMenus(fileOptionsAmount-1, fileOptions, fileCursor, fileMenuOptions, true);
+    audio.connecttoSD(fileName.c_str());     // SD
+    audioPlayingScreen();
     break;
   case 6: // Folder
-    // If G0 button is pressed show delete folder menu
-    if (digitalRead(0)==0) {
-      deletingFolder = true;
-      deleteFolderMenu();
-    } else {
-      pathLen++;
-      //pathChanged = true;
-    }
+    pathLen++;
     break;
   case 7: // Previous folder
     sdFiles[pathLen] = '\0';
     pathLen--;
-    //pathChanged = true;
     break;
   }
   return;
@@ -719,7 +622,7 @@ void handleFolders() {
   while (pathChanged) {
     if (pathArray[pathLen] != root) {
       fileAmount = 1;
-      if (mainCursor >= 0 && fileType[fileCursor] < 8 && !deletingFolder) {
+      if (mainCursor >= 0 && fileType[fileCursor] < 8) {
         pathArray[pathLen] = "/" + sdFiles[mainCursor];
       }
       getCurrentPath();
@@ -742,7 +645,6 @@ void handleFolders() {
     fileType[fileAmount] = '\0';
     
     mainCursor = 0;
-    deletingFolder = false;
     //pathChanged = false;
     handleMenus(fileAmount-1, mainOptions, mainCursor, sdFiles, true);
   }
@@ -794,7 +696,7 @@ void handleMenus(int options, void (*executeFunction)(), int& cursor, String* st
 
       menuSprite.setTextColor(PURPLE);
 
-      menuSprite.drawString(">", 5, 3*20);
+      menuSprite.drawString(">", 5, 3*20+1);
 
       printMenu(cursor, strings, options, screenDirection, addIcons);
 
@@ -811,4 +713,11 @@ void handleMenus(int options, void (*executeFunction)(), int& cursor, String* st
 }
 
 void loop() {
+}
+
+void audio_eof_mp3(const char *info){  //end of file
+    Serial.print("audio_info: "); Serial.println(info);
+    currentAudioNum++;
+    String fileName = path + "/" + sdFiles[mainCursor+currentAudioNum];
+    audio.connecttoSD(fileName.c_str());
 }
