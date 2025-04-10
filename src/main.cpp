@@ -506,7 +506,7 @@ void scrollText(M5Canvas sprite, String name, int& x, int y) {
   }
 }
 
-void AudioPlayingScreen() {
+void audioPlayingScreen() {
   //M5Canvas backgroundSprite(&display);
   //M5Canvas menuSprite(&display);
 
@@ -631,7 +631,7 @@ void fileOptions() {
   if (fileCursor == 0) {
     String fileName = path + "/" + sdFiles[mainCursor];
     audio.connecttoFS(SD, fileName.c_str());     // SD
-    AudioPlayingScreen();
+    audioPlayingScreen();
     return;
   }
   else if (fileCursor == 1) {
