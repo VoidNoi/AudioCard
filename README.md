@@ -1,7 +1,7 @@
 # AudioCard
 Audio player for the Cardputer
 
-Place your audios inside the /AudioCard folder on your SD card
+Place your audios or folders inside the `AudioCard` folder on your SD card
 
 It technically supports mp3, aac, flac and opus but I've only tested it with mp3
 
