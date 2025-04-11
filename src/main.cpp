@@ -622,24 +622,21 @@ void handleFolders() {
   while (pathChanged) {
     if (pathArray[pathLen] != root) {
       fileAmount = 1;
-      if (mainCursor >= 0 && fileType[fileCursor] < 8) {
+      //If option is a folder or going back, store the folder 
+      if (fileType[mainCursor] == 6 || fileType[mainCursor] == 8) {
         pathArray[pathLen] = "/" + sdFiles[mainCursor];
       }
       getCurrentPath();
       sdFiles[0] = "..";
-      //sdFiles[1] = "NEW FOLDER";
       fileType[0] = 7;
-      //fileType[1] = 2;
     } else {
       fileAmount = 0;
       path = root;
       pathLen = 0;
-      
-      //sdFiles[0] = "NEW FOLDER";
-      //fileType[0] = 2;
     }
     
     getDirectory(path, fileAmount, sdFiles, fileType);
+
     // Empties an extra value at the end to prevent previous files from appearing in the menu
     sdFiles[fileAmount] = '\0';
     fileType[fileAmount] = '\0';
